@@ -362,6 +362,7 @@ async function backupSave(){
   const d=new Date(),ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   const name=`hifz-yedek-${ds}.json`;
   const data=JSON.stringify({app:'hifz',v:3,date:d.toISOString(),S},null,1);
+  if(window.HifzApp&&HifzApp.shareBackup){HifzApp.shareBackup(name,data);return}
   const file=new File([data],name,{type:'application/json'});
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Hıfz yedeği',text:'Hıfz uygulaması ilerleme yedeği'});toast('Yedek hazır ✓');return}}catch(e){if(e&&e.name==='AbortError')return}
   try{const a=document.createElement('a');a.href=URL.createObjectURL(file);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('Yedek “İndirilenler” klasörüne kaydedildi ✓')}catch(e){toast('Yedek alınamadı')}
@@ -569,6 +570,9 @@ const SRC=[
  k=>{const [s,a]=PK(k);return `https://cdn.islamic.network/quran/audio/64/ar.husary/${G[s-1]+a}.mp3`},
  k=>{const [s,a]=PK(k);return `https://everyayah.com/data/Husary_64kbps/${pad(s)}${pad(a)}.mp3`}
 ];
+const LOCAL=location.hostname==='appassets.androidplatform.net';
+const LSET=new Set();if(LOCAL)ITEMS.forEach(it=>keysOf(it).forEach(k=>LSET.add(k)));
+const srcs=k=>{const [s,a]=PK(k);return (LOCAL&&LSET.has(k)?[`audio/${pad(s)}${pad(a)}.mp3`]:[]).concat(SRC.map(f=>f(k)))};
 const inFrame=(()=>{try{return window.top!==window}catch(e){return true}})();
 let Q=[],gapT=null;const P={i:0,c:0,cur:null,b:0,rep:1,gap:false,loop:false};
 
@@ -580,21 +584,21 @@ function playFrom(k){
 function repeatAyah(k){Q=[k];P.i=0;P.c=0;P.rep=Math.max(S.rep,3);P.gap=S.gap;P.loop=true;load();toast('Bu ayet tekrar tekrar okunacak. Durdurmak için “Durdur”.')}
 function load(){
   clearTimeout(gapT);gapT=null;const k=Q[P.i];P.cur=k;P.b=0;
-  au.src=SRC[0](k);au.play().catch(()=>{});
+  P.srcs=srcs(k);au.src=P.srcs[0];au.play().catch(()=>{});
   $$('.v.playing').forEach(x=>x.classList.remove('playing'));
   const i=R.kidx[k];if(i!==undefined&&i!==R.idx){goPage(i,true)}
   setTimeout(()=>{const el=$('#v'+k.replace(':','_'));if(el){el.classList.add('playing');const fr=el.closest('.frame');if(fr&&fr.classList.contains('scroll'))el.scrollIntoView({block:'center',behavior:'smooth'})}},i!==R.idx?450:0);
-  pstat();rbar();
+  pstat();rbar();try{window.HifzApp&&HifzApp.keepScreenOn(true)}catch(e){}
 }
-function stopAudio(){clearTimeout(gapT);gapT=null;au.pause();Q=[];P.cur=null;au.removeAttribute('src');$$('.v.playing').forEach(x=>x.classList.remove('playing'));pstat();if(R)rbar()}
+function stopAudio(){try{window.HifzApp&&HifzApp.keepScreenOn(false)}catch(e){}clearTimeout(gapT);gapT=null;au.pause();Q=[];P.cur=null;au.removeAttribute('src');$$('.v.playing').forEach(x=>x.classList.remove('playing'));pstat();if(R)rbar()}
 function next(){
   gapT=null;
-  if(P.c<P.rep){au.currentTime=0;au.play().catch(()=>{});pstat();return}
+  if(P.c<P.rep){const u=au.src;au.src=u;au.play().catch(()=>{});pstat();return}
   P.c=0;if(P.i<Q.length-1){P.i++;load()}else if(P.loop){P.i=0;load()}else{stopAudio()}
 }
 au.onended=()=>{if(!R||!Q.length)return;P.c++;
   if(P.gap){const d=(au.duration&&isFinite(au.duration)?au.duration:4)*1000*1.1+600;gapT=setTimeout(next,d);pstat(true);rbar()}else next()};
-au.onerror=()=>{if(!au.getAttribute('src')||!R)return;if(P.b<SRC.length-1){P.b++;au.src=SRC[P.b](P.cur);au.play().catch(()=>{})}else{toast(inFrame?'Ses bu önizlemede çalmaz. Dosyayı Chrome ile açın.':'Ses açılamadı. İnternet bağlantısını kontrol edin.');stopAudio()}};
+au.onerror=()=>{if(!au.getAttribute('src')||!R)return;if(P.b<P.srcs.length-1){P.b++;au.src=P.srcs[P.b];au.play().catch(()=>{})}else{toast(inFrame?'Ses bu önizlemede çalmaz. Dosyayı Chrome ile açın.':'Ses açılamadı. İnternet bağlantısını kontrol edin.');stopAudio()}};
 au.onplay=()=>{pstat();rbar()};au.onpause=()=>{if(!gapT){pstat();rbar()}};
 function pstat(gap){
   const el=$('#pst');if(!el)return;

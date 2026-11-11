@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+def vc = (project.findProperty('versionCode') ?: '1').toString().toInteger()
+android {
+    namespace 'com.oldzone.hifz'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'com.oldzone.hifz'
+        minSdk 24
+        targetSdk 34
+        versionCode vc
+        versionName "1.${vc}"
+    }
+    signingConfigs {
+        release {
+            storeFile file('../hifz.jks')
+            storePassword 'hifz-anne-2026'
+            keyAlias 'hifz'
+            keyPassword 'hifz-anne-2026'
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    androidResources { noCompress += ['mp3'] }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.core:core:1.13.1'
+}

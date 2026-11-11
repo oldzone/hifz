@@ -1,0 +1,46 @@
+name: APK
+on:
+  push:
+    branches: [main]
+    paths: ['index.html', 'android/**', 'audio-keys.txt', '.github/workflows/apk.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: { group: apk, cancel-in-progress: true }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+      - name: Uygulama ve ezber sesleri
+        run: |
+          set -e
+          AS=android/app/src/main/assets
+          mkdir -p $AS/audio
+          cp index.html $AS/index.html
+          cd $AS/audio
+          dl() {
+            n="${1%%:*}"; g="${1##*:}"
+            [ -s "$n.mp3" ] && return 0
+            curl -fsSL --retry 5 --retry-delay 2 -m 60 -o "$n.mp3" "https://everyayah.com/data/Husary_64kbps/$n.mp3" \
+            || curl -fsSL --retry 5 --retry-delay 2 -m 60 -o "$n.mp3" "https://cdn.islamic.network/quran/audio/64/ar.husary/$g.mp3" \
+            || { rm -f "$n.mp3"; echo "EKSIK $n"; }
+          }
+          export -f dl
+          grep -v '^$' "$GITHUB_WORKSPACE/audio-keys.txt" | xargs -P 12 -I{} bash -c 'dl {}'
+          echo "Ses dosyası: $(ls | wc -l)"; du -sh .
+      - name: APK derle
+        run: gradle -p android assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+      - name: Yayınla
+        run: cp android/app/build/outputs/apk/release/app-release.apk hifz.apk && ls -la hifz.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Hıfz 1.${{ github.run_number }}
+          body: Hıfz Android uygulaması. Telefona indirip kurun.
+          files: hifz.apk
+          make_latest: true
