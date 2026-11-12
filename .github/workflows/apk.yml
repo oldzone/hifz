@@ -1,8 +1,5 @@
 name: APK
 on:
-  push:
-    branches: [main]
-    paths: ['index.html', 'android/**', 'audio-keys.txt', '.github/workflows/apk.yml']
   workflow_dispatch:
 permissions:
   contents: write
